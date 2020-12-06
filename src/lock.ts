@@ -2,7 +2,7 @@ import { Service, PlatformAccessory, CharacteristicValue, CharacteristicSetCallb
 
 import { GlueHomePlatformPlugin } from './platform';
 import { GlueApi } from './api/client';
-import { Lock, EventType, LockOperationType, LockOperation } from './api';
+import { Lock, EventType, LockOperationType } from './api';
 
 
 export class GlueLockAccessory {
@@ -16,7 +16,7 @@ export class GlueLockAccessory {
     'remoteLock': this.platform.Characteristic.LockCurrentState.SECURED,
     'localUnlock': this.platform.Characteristic.LockCurrentState.UNSECURED,
     'manualUnlock': this.platform.Characteristic.LockCurrentState.UNSECURED,
-    'remoteUnlock': this.platform.Characteristic.LockCurrentState.UNSECURED
+    'remoteUnlock': this.platform.Characteristic.LockCurrentState.UNSECURED,
   };
 
   private lockTargetState: Record<number, LockOperationType> = {
@@ -37,7 +37,8 @@ export class GlueLockAccessory {
       .setCharacteristic(this.platform.Characteristic.Model, `${lock.productType}${lock.productVersion}`)
       .setCharacteristic(this.platform.Characteristic.FirmwareRevision, lock.firmwareVersion);
 
-    this.lockMechanism = this.accessory.getService(this.platform.Service.LockMechanism) || this.accessory.addService(this.platform.Service.LockMechanism);
+    this.lockMechanism = this.accessory.getService(this.platform.Service.LockMechanism)
+      || this.accessory.addService(this.platform.Service.LockMechanism);
 
     this.lockMechanism.getCharacteristic(this.platform.Characteristic.LockCurrentState)
       .on('get', this.getLockCurrentState.bind(this));
@@ -46,7 +47,8 @@ export class GlueLockAccessory {
       .on('get', this.getLockTargetState.bind(this))
       .on('set', this.setLockTargetState.bind(this));
 
-    this.batteryService = this.accessory.getService(this.platform.Service.BatteryService) || this.accessory.addService(this.platform.Service.BatteryService);
+    this.batteryService = this.accessory.getService(this.platform.Service.BatteryService)
+      || this.accessory.addService(this.platform.Service.BatteryService);
     this.batteryService
       .getCharacteristic(this.platform.Characteristic.BatteryLevel)
       .on('get', this.getBatteryLevel.bind(this));
@@ -62,7 +64,7 @@ export class GlueLockAccessory {
   }
 
   getLockCurrentState(callback: CharacteristicSetCallback) {
-    var currentLockState = this.computeLockCurrentState();
+    const currentLockState = this.computeLockCurrentState();
     this.platform.log.debug(`getLockTargetState for lock ${this.lock.description} with value ${currentLockState}`);
 
     callback(null, currentLockState);
@@ -76,7 +78,7 @@ export class GlueLockAccessory {
 
   setLockTargetState(value: CharacteristicValue, callback: CharacteristicSetCallback) {
     this.platform.log.debug(`setLockTargetState setLockTargetState to ${value} for lock ${this.lock.description}`);
-    var targetValue = value as number;
+    const targetValue = value as number;
 
     if (this.lock.hubId) {
       this.glueClient
@@ -84,7 +86,7 @@ export class GlueLockAccessory {
         .then(operation => {
           this.platform.log.debug(`operation for lock ${this.lock.description}`, operation);
 
-          if (operation.status == 'completed') {
+          if (operation.status === 'completed') {
             return callback(null, value);
           } else {
             this.checkRemoteOperationStatus(callback, operation.id, targetValue);
@@ -106,7 +108,7 @@ export class GlueLockAccessory {
 
   getBatteryStatus(callback: CharacteristicGetCallback) {
     this.platform.log.debug(`getBatteryStatus for lock ${this.lock.description} with value ${this.computeLockBatteryStatus()}.`);
-    callback(null, this.computeLockBatteryStatus())
+    callback(null, this.computeLockBatteryStatus());
   }
 
   getBatteryChargingState(callback: CharacteristicGetCallback) {
@@ -119,11 +121,11 @@ export class GlueLockAccessory {
       this.glueClient.getLockOperation(this.lock.id, opId)
         .then((operation) => {
           this.platform.log.debug('Operation result', operation);
-          
-          if (operation.status == 'completed') {
-             callback(null, value);
+
+          if (operation.status === 'completed') {
+            callback(null, value);
           } else {
-             callback(null);
+            callback(null);
           }
         }).catch((err) => {
           callback(err);
@@ -134,7 +136,7 @@ export class GlueLockAccessory {
   private computeLockBatteryStatus() {
     return this.lock.isBatteryLow() ?
       this.platform.Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW :
-      this.platform.Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL
+      this.platform.Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL;
   }
 
   private computeLockCurrentState() {
@@ -155,9 +157,9 @@ export class GlueLockAccessory {
           this.batteryService.updateCharacteristic(this.platform.Characteristic.BatteryLevel, this.lock.batteryLevel());
           this.batteryService.updateCharacteristic(this.platform.Characteristic.StatusLowBattery, this.computeLockBatteryStatus());
 
-          var lockCurrentState = this.computeLockCurrentState();
+          const lockCurrentState = this.computeLockCurrentState();
 
-          if (lockCurrentState != undefined) {
+          if (lockCurrentState !== undefined) {
             this.lockMechanism.updateCharacteristic(this.platform.Characteristic.LockCurrentState, lockCurrentState);
           }
         });
