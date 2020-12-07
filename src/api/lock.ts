@@ -61,6 +61,10 @@ export class LockOperation {
         public validUntil?: Date,
     ) { }
 
+    public isFinished(): boolean {
+        return this.status != 'pending';
+    }
+
     public static fromJson(json): LockOperation {
         return new LockOperation(
             json.id,

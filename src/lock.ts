@@ -2,8 +2,8 @@ import { Service, PlatformAccessory, CharacteristicValue, CharacteristicSetCallb
 
 import { GlueHomePlatformPlugin } from './platform';
 import { GlueApi } from './api/client';
-import { Lock, EventType, LockOperationType } from './api';
-
+import { Lock, EventType, LockOperationType, LockOperation } from './api';
+import { retry } from './utils';
 
 export class GlueLockAccessory {
   private lockMechanism: Service;
@@ -83,14 +83,23 @@ export class GlueLockAccessory {
     if (this.lock.hubId) {
       this.glueClient
         .createLockOperation(this.lock.id, { type: this.lockTargetState[targetValue] })
-        .then(operation => {
-          this.platform.log.debug(`operation for lock ${this.lock.description}`, operation);
+        .then(createdOperation => {
+          this.platform.log.debug(`operation for lock ${this.lock.description}`, createdOperation);
 
-          if (operation.status === 'completed') {
-            return callback(null, value);
-          } else {
-            this.checkRemoteOperationStatus(callback, operation.id, targetValue);
-          }
+          return createdOperation.isFinished() ?
+            createdOperation :
+            retry<LockOperation>({
+              times: 3,
+              interval: 2000,
+              task: () => this.checkRemoteOperationStatus(createdOperation.id),
+            });
+        })
+        .then(operation => {
+          this.platform.log.info('Operation completed', operation);
+
+          return operation.status === 'completed' ?
+            callback(null, value) :
+            callback(null);
         })
         .catch(err => {
           this.platform.log.error(err);
@@ -116,21 +125,14 @@ export class GlueLockAccessory {
     callback(null, this.platform.Characteristic.ChargingState.NOT_CHARGEABLE);
   }
 
-  private checkRemoteOperationStatus(callback: CharacteristicSetCallback, opId: string, value: number) {
-    setTimeout(() => {
-      this.glueClient.getLockOperation(this.lock.id, opId)
-        .then((operation) => {
-          this.platform.log.debug('Operation result', operation);
+  private async checkRemoteOperationStatus(opId: string): Promise<LockOperation> {
+    const operation = await this.glueClient.getLockOperation(this.lock.id, opId);
 
-          if (operation.status === 'completed') {
-            callback(null, value);
-          } else {
-            callback(null);
-          }
-        }).catch((err) => {
-          callback(err);
-        });
-    }, 5000);
+    if (operation.status === 'pending') {
+      throw new Error(`Operation ${opId} is still pending.`);
+    }
+
+    return operation;
   }
 
   private computeLockBatteryStatus() {
