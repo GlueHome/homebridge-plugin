@@ -1,3 +1,5 @@
-export { Lock, EventType, CreateLockOperation, LockOperation, LockOperationType } from "./lock";
-export { Hub } from "./hub"
+export {
+    Lock, EventType, CreateLockOperation, LockOperation,
+    LockOperationType, LockOperationStatus, LockConnecitionStatus
+} from "./lock";
 export { GlueApi } from "./client"

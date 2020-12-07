@@ -1,5 +1,5 @@
 import axios, { AxiosInstance } from "axios"
-import { Lock, Hub, LockOperation, CreateLockOperation } from "./"
+import { Lock, LockOperation, CreateLockOperation } from "./"
 
 export class GlueApi {
     private readonly apiKey: string;
@@ -40,15 +40,5 @@ export class GlueApi {
     public createLockOperation(id: string, operation: CreateLockOperation): Promise<LockOperation> {
         return this.httpClient.post<LockOperation>(`/v1/locks/${id}/operations`, operation)
             .then(res => LockOperation.fromJson(res.data));
-    }
-
-    public getHubs(): Promise<Hub[]> {
-        return this.httpClient.get<Hub[]>("/v1/hubs")
-            .then(res => res.data);
-    }
-
-    public getHub(id: string): Promise<Hub> {
-        return this.httpClient.get<Hub>(`/v1/Hub/${id}`)
-            .then(res => res.data);
     }
 }

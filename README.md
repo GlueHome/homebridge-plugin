@@ -27,7 +27,7 @@ curl --location --request POST 'https://api.gluehome.com/v1/api-keys' \
 -u username:password \
 --data-raw '{
     "name": "My Test Key",
-    "scopes": ["hubs.read", "events.read", "locks.read", "locks.write"]
+    "scopes": ["events.read", "locks.read", "locks.write"]
 }'
 ```
 

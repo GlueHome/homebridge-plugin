@@ -2,7 +2,7 @@ import { Service, PlatformAccessory, CharacteristicValue, CharacteristicSetCallb
 
 import { GlueHomePlatformPlugin } from './platform';
 import { GlueApi } from './api/client';
-import { Lock, EventType, LockOperationType, LockOperation } from './api';
+import { Lock, EventType, LockOperationType, LockOperation, LockConnecitionStatus } from './api';
 import { retry } from './utils';
 
 export class GlueLockAccessory {
@@ -10,6 +10,7 @@ export class GlueLockAccessory {
   private batteryService: Service;
 
   private lockCurrentState: Record<EventType, number> = {
+    'unknown': -1,
     'pressAndGo': this.platform.Characteristic.LockCurrentState.SECURED,
     'localLock': this.platform.Characteristic.LockCurrentState.SECURED,
     'manualLock': this.platform.Characteristic.LockCurrentState.SECURED,
@@ -34,7 +35,7 @@ export class GlueLockAccessory {
       .setCharacteristic(this.platform.Characteristic.Manufacturer, 'GlueHome')
       .setCharacteristic(this.platform.Characteristic.SerialNumber, lock.serialNumber)
       .setCharacteristic(this.platform.Characteristic.Name, lock.description)
-      .setCharacteristic(this.platform.Characteristic.Model, `${lock.productType}${lock.productVersion}`)
+      .setCharacteristic(this.platform.Characteristic.Model, lock.getLockModel())
       .setCharacteristic(this.platform.Characteristic.FirmwareRevision, lock.firmwareVersion);
 
     this.lockMechanism = this.accessory.getService(this.platform.Service.LockMechanism)
@@ -80,7 +81,7 @@ export class GlueLockAccessory {
     this.platform.log.debug(`setLockTargetState setLockTargetState to ${value} for lock ${this.lock.description}`);
     const targetValue = value as number;
 
-    if (this.lock.hubId) {
+    if (this.lock.connectionStatus === LockConnecitionStatus.Connected) {
       this.glueClient
         .createLockOperation(this.lock.id, { type: this.lockTargetState[targetValue] })
         .then(createdOperation => {
@@ -142,7 +143,7 @@ export class GlueLockAccessory {
   }
 
   private computeLockCurrentState() {
-    return this.lock.lastLockEvent && this.lockCurrentState[this.lock.lastLockEvent.lastLockEvent] ?
+    return this.lock.lastLockEvent && this.lockCurrentState[this.lock.lastLockEvent.lastLockEvent] >= 0 ?
       this.lockCurrentState[this.lock.lastLockEvent.lastLockEvent] :
       undefined;
   }

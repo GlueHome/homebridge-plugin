@@ -3,18 +3,14 @@ export class Lock {
         public id: string,
         public serialNumber: string,
         public description: string,
-        public productType: string,
-        public productVersion: string,
         public firmwareVersion: string,
-        public hardwareVersion: string,
-        public availableFirmwareVersion: string,
         public batteryStatus: number,
-        public hubId?: string,
+        public connectionStatus: LockConnecitionStatus,
         public lastLockEvent?: LockEvent) {
     }
 
-    public getGlueLockVersion(): string {
-        return this.serialNumber.substring(2, 2);
+    public getLockModel(): string {
+        return this.serialNumber.substring(0, 4);
     }
 
     public batteryLevel(): number {
@@ -30,14 +26,10 @@ export class Lock {
             json.id,
             json.serialNumber,
             json.description,
-            json.productType,
-            json.productVersion,
             json.firmwareVersion,
-            json.hardwareVersion,
-            json.availableFirmwareVersion,
             json.batteryStatus,
-            json.hubId,
-            json.lastLockEvent,
+            json.connectionStatus,
+            json.lastLockEvent
         );
     }
 }
@@ -45,6 +37,20 @@ export class Lock {
 export enum LockOperationType {
     Lock = "lock",
     Unlock = "unlock"
+};
+
+export enum LockOperationStatus {
+    Pending = "pending",
+    Completed = "completed",
+    Timeout = "timeout",
+    Failed = "failed",
+};
+
+export enum LockConnecitionStatus {
+    Offline = "offline",
+    Disconnected = "disconnected",
+    Connected = "connected",
+    Busy = "busy",
 };
 
 export interface CreateLockOperation {
@@ -55,7 +61,7 @@ export class LockOperation {
     constructor(
         public id: string,
         public userId: string,
-        public status: "pending" | "completed" | "timeout" | "failed",
+        public status: LockOperationStatus,
         public reason?: string,
         public validFrom?: Date,
         public validUntil?: Date,
@@ -78,6 +84,7 @@ export class LockOperation {
 }
 
 export type EventType =
+    "unknown" |
     "localLock" |
     "localUnlock" |
     "remoteLock" |
@@ -85,21 +92,6 @@ export type EventType =
     "pressAndGo" |
     "manualUnlock" |
     "manualLock"
-
-export type DoorState =
-    "unknown" |
-    "hidden" |
-    "pending" |
-    "locked" |
-    "unlocked" |
-    "open" |
-    "closed" |
-    "hubOffline" |
-    "hubUpgrading" |
-    "pendingBoltCalibration" |
-    "pendingDoorCalibration" |
-    "pendingLockUpgrade" |
-    "pendingHubUpgrade"
 
 interface LockEvent {
     lastLockEvent: EventType
