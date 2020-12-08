@@ -12,17 +12,17 @@ This is a template Homebridge platform plugin and can be used as a base to help 
 
 ## Installation
 
-Install `homebrige-gluehome` as a global package.
+Install `@gluehome/homebridge-gluehome` as a global package.
 ```
-install npm i -g homebrige-gluehome
+install npm i -g @gluehome/homebridge-gluehome
 ```
 
 ## Requirements
 
-In order to use `homebrige-gluehome`, it is required to create an api key.
+In order to use `@gluehome/homebridge-gluehome`, it is required to create an api key.
 
 ```
-curl --location --request POST 'https://api.gluehome.com/v1/api-keys' \
+curl --location --request POST 'https://user-api.gluehome.com/v1/api-keys' \
 --header 'Content-Type: application/json' \
 -u username:password \
 --data-raw '{

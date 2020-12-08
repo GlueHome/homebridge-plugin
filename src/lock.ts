@@ -112,8 +112,8 @@ export class GlueLockAccessory {
   }
 
   getBatteryLevel(callback: CharacteristicGetCallback) {
-    this.platform.log.debug(`getBatteryLevel for lock ${this.lock.description} with value ${this.lock.batteryLevel()}.`);
-    callback(null, this.lock.batteryLevel());
+    this.platform.log.debug(`getBatteryLevel for lock ${this.lock.description} with value ${this.lock.batteryStatus}.`);
+    callback(null, this.lock.batteryStatus);
   }
 
   getBatteryStatus(callback: CharacteristicGetCallback) {
@@ -157,7 +157,7 @@ export class GlueLockAccessory {
           this.lock = lock;
 
           this.lockMechanism.updateCharacteristic(this.platform.Characteristic.Name, this.lock.description);
-          this.batteryService.updateCharacteristic(this.platform.Characteristic.BatteryLevel, this.lock.batteryLevel());
+          this.batteryService.updateCharacteristic(this.platform.Characteristic.BatteryLevel, this.lock.batteryStatus);
           this.batteryService.updateCharacteristic(this.platform.Characteristic.StatusLowBattery, this.computeLockBatteryStatus());
 
           const lockCurrentState = this.computeLockCurrentState();

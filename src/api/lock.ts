@@ -13,12 +13,8 @@ export class Lock {
         return this.serialNumber.substring(0, 4);
     }
 
-    public batteryLevel(): number {
-        return this.batteryStatus * 100 / 255;
-    }
-
     public isBatteryLow(): boolean {
-        return this.batteryLevel() < 20;
+        return this.batteryStatus < 50;
     }
 
     public static fromJson(json): Lock {
