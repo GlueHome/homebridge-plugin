@@ -9,7 +9,7 @@ export class GlueApi {
         this.apiKey = apiKey;
 
         this.httpClient = axios.create({
-            baseURL: "https://api-dev.gluehome.net",
+            baseURL: "https://user-api.gluehome.com",
             timeout: 60000
         });
 

@@ -1,5 +1,4 @@
 {
-  "private": true,
   "displayName": "GlueHome Homebrige Plugin",
   "name": "@gluehome/homebridge-gluehome",
   "version": "0.1.0",

@@ -130,7 +130,7 @@ export class GlueLockAccessory {
     const operation = await this.glueClient.getLockOperation(this.lock.id, opId);
 
     if (operation.status === 'pending') {
-      throw new Error(`Operation ${opId} is still pending.`);
+      throw new Error(`Operation ${opId} pending.`);
     }
 
     return operation;
