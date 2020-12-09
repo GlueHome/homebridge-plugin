@@ -1,7 +1,7 @@
 {
   "displayName": "GlueHome Homebrige Plugin",
   "name": "@gluehome/homebridge-gluehome",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Homebridge plugin to integrate with GlueHome ecosystem.",
   "license": "Apache-2.0",
   "repository": {
