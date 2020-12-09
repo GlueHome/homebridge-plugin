@@ -1,8 +1,13 @@
-import { Service, PlatformAccessory, CharacteristicValue, CharacteristicSetCallback, CharacteristicGetCallback } from 'homebridge';
-
+import {
+  Service, PlatformAccessory, CharacteristicValue,
+  CharacteristicSetCallback, CharacteristicGetCallback,
+} from 'homebridge';
 import { GlueHomePlatformPlugin } from './platform';
 import { GlueApi } from './api/client';
-import { Lock, EventType, LockOperationType, LockOperation, LockConnecitionStatus } from './api';
+import {
+  Lock, EventType, LockOperationType, LockOperation, LockConnecitionStatus,
+  LockOperationStatus,
+} from './api';
 import { retry } from './utils';
 
 export class GlueLockAccessory {
@@ -10,7 +15,7 @@ export class GlueLockAccessory {
   private batteryService: Service;
 
   private lockCurrentState: Record<EventType, number> = {
-    'unknown': -1,
+    'unknown': this.platform.Characteristic.LockCurrentState.UNKNOWN,
     'pressAndGo': this.platform.Characteristic.LockCurrentState.SECURED,
     'localLock': this.platform.Characteristic.LockCurrentState.SECURED,
     'manualLock': this.platform.Characteristic.LockCurrentState.SECURED,
@@ -20,9 +25,14 @@ export class GlueLockAccessory {
     'remoteUnlock': this.platform.Characteristic.LockCurrentState.UNSECURED,
   };
 
-  private lockTargetState: Record<number, LockOperationType> = {
+  private lockTargetStateMapper: Record<number, LockOperationType> = {
     0: LockOperationType.Unlock,
     1: LockOperationType.Lock,
+  };
+
+  private targetToCurrentStateMapper: Record<number, EventType> = {
+    0: 'remoteUnlock',
+    1: 'remoteLock',
   };
 
   constructor(
@@ -64,50 +74,61 @@ export class GlueLockAccessory {
     this.refreshLockData();
   }
 
-  getLockCurrentState(callback: CharacteristicSetCallback) {
+  getLockCurrentState(callback: CharacteristicGetCallback) {
+    const currentLockState = this.computeLockCurrentState();
+    this.platform.log.debug(`getLockCurrentState for lock ${this.lock.description} with value ${currentLockState}`);
+
+    callback(null, currentLockState);
+  }
+
+  getLockTargetState(callback: CharacteristicGetCallback) {
     const currentLockState = this.computeLockCurrentState();
     this.platform.log.debug(`getLockTargetState for lock ${this.lock.description} with value ${currentLockState}`);
 
     callback(null, currentLockState);
   }
 
-  getLockTargetState(callback: CharacteristicSetCallback) {
-    const state = this.computeLockCurrentState();
-    this.platform.log.debug(`getLockTargetState for lock ${this.lock.description} with value ${state}`);
-    callback(null, state);
-  }
-
   setLockTargetState(value: CharacteristicValue, callback: CharacteristicSetCallback) {
     this.platform.log.debug(`setLockTargetState setLockTargetState to ${value} for lock ${this.lock.description}`);
     const targetValue = value as number;
+    const remoteOperationType = this.lockTargetStateMapper[targetValue];
 
     if (this.lock.connectionStatus === LockConnecitionStatus.Connected) {
       this.glueClient
-        .createLockOperation(this.lock.id, { type: this.lockTargetState[targetValue] })
+        .createLockOperation(this.lock.id, { type: remoteOperationType })
         .then(createdOperation => {
           this.platform.log.debug(`operation for lock ${this.lock.description}`, createdOperation);
 
           return createdOperation.isFinished() ?
             createdOperation :
             retry<LockOperation>({
-              times: 3,
+              times: 5,
               interval: 2000,
               task: () => this.checkRemoteOperationStatus(createdOperation.id),
             });
         })
         .then(operation => {
-          this.platform.log.info('Operation completed', operation);
+          this.platform.log.info('Operation finished', operation);
 
-          return operation.status === 'completed' ?
-            callback(null, value) :
-            callback(null);
+          if (operation.status === LockOperationStatus.Completed) {
+            this.lock.lastLockEvent = {
+              eventType: this.targetToCurrentStateMapper[targetValue],
+              lastLockEventDate: new Date(),
+            };
+
+            this.lockMechanism.setCharacteristic(this.platform.Characteristic.LockCurrentState, this.computeLockCurrentState());
+
+            callback(null, targetValue);
+          } else {
+            callback(new Error(`Remote operation ${operation.status}.`));
+          }
         })
         .catch(err => {
           this.platform.log.error(err);
           callback(err);
         });
     } else {
-      callback(new Error(`Please pair a hub with lock ${this.lock.description}`));
+      callback(new Error(`Lock ${this.lock.description} is not connected.`));
     }
   }
 
@@ -117,8 +138,9 @@ export class GlueLockAccessory {
   }
 
   getBatteryStatus(callback: CharacteristicGetCallback) {
-    this.platform.log.debug(`getBatteryStatus for lock ${this.lock.description} with value ${this.computeLockBatteryStatus()}.`);
-    callback(null, this.computeLockBatteryStatus());
+    const status = this.computeLockBatteryStatus();
+    this.platform.log.debug(`getBatteryStatus for lock ${this.lock.description} with value ${status}.`);
+    callback(null, status);
   }
 
   getBatteryChargingState(callback: CharacteristicGetCallback) {
@@ -129,7 +151,9 @@ export class GlueLockAccessory {
   private async checkRemoteOperationStatus(opId: string): Promise<LockOperation> {
     const operation = await this.glueClient.getLockOperation(this.lock.id, opId);
 
-    if (operation.status === 'pending') {
+    this.platform.log.debug('checkRemoteOperationStatus', operation);
+
+    if (operation.status === LockOperationStatus.Pending) {
       throw new Error(`Operation ${opId} pending.`);
     }
 
@@ -143,28 +167,23 @@ export class GlueLockAccessory {
   }
 
   private computeLockCurrentState() {
-    return this.lock.lastLockEvent && this.lockCurrentState[this.lock.lastLockEvent.lastLockEvent] >= 0 ?
-      this.lockCurrentState[this.lock.lastLockEvent.lastLockEvent] :
-      undefined;
+    return this.lock.lastLockEvent ?
+      this.lockCurrentState[this.lock.lastLockEvent.eventType] :
+      this.platform.Characteristic.LockCurrentState.UNKNOWN;
   }
 
   private refreshLockData() {
     setInterval(() => {
       this.glueClient
         .getLock(this.lock.id)
-        .then(lock => {
-          this.platform.log.debug(`Update lock ${lock.description} characteristics.`, lock);
-          this.lock = lock;
+        .then(updatedLock => {
+          this.platform.log.debug(`Update lock ${updatedLock.description} characteristics.`, updatedLock);
+          this.lock = updatedLock;
 
           this.lockMechanism.updateCharacteristic(this.platform.Characteristic.Name, this.lock.description);
           this.batteryService.updateCharacteristic(this.platform.Characteristic.BatteryLevel, this.lock.batteryStatus);
           this.batteryService.updateCharacteristic(this.platform.Characteristic.StatusLowBattery, this.computeLockBatteryStatus());
-
-          const lockCurrentState = this.computeLockCurrentState();
-
-          if (lockCurrentState !== undefined) {
-            this.lockMechanism.updateCharacteristic(this.platform.Characteristic.LockCurrentState, lockCurrentState);
-          }
+          this.lockMechanism.updateCharacteristic(this.platform.Characteristic.LockCurrentState, this.computeLockCurrentState());
         });
     }, 10000);
   }

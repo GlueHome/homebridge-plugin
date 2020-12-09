@@ -56,25 +56,19 @@ export interface CreateLockOperation {
 export class LockOperation {
     constructor(
         public id: string,
-        public userId: string,
         public status: LockOperationStatus,
         public reason?: string,
-        public validFrom?: Date,
-        public validUntil?: Date,
     ) { }
 
     public isFinished(): boolean {
-        return this.status != 'pending';
+        return this.status !== 'pending';
     }
 
     public static fromJson(json): LockOperation {
         return new LockOperation(
             json.id,
-            json.userId,
             json.status,
-            json.reason,
-            json.validFrom,
-            json.validUntil,
+            json.reason
         )
     }
 }
@@ -90,6 +84,6 @@ export type EventType =
     "manualLock"
 
 interface LockEvent {
-    lastLockEvent: EventType
+    eventType: EventType
     lastLockEventDate: Date
 }
