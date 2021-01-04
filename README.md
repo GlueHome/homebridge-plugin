@@ -14,7 +14,7 @@ This is a template Homebridge platform plugin and can be used as a base to help 
 
 Install `@gluehome/homebridge-gluehome` as a global package.
 ```
-install npm i -g @gluehome/homebridge-gluehome
+npm i -g @gluehome/homebridge-gluehome
 ```
 
 ## Requirements
