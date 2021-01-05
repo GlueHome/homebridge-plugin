@@ -8,7 +8,7 @@
 
 # GlueHome Homebridge Plugin
 
-This is a template Homebridge platform plugin and can be used as a base to help you get started developing your own plugin.
+This is a Homebridge plugin that allows to integrate with GlueHome ecosystem.
 
 ## Installation
 

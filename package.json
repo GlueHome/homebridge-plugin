@@ -1,5 +1,5 @@
 {
-  "displayName": "GlueHome Homebrige Plugin",
+  "displayName": "GlueHome Homebridge Plugin",
   "name": "@gluehome/homebridge-gluehome",
   "version": "0.1.1",
   "description": "Homebridge plugin to integrate with GlueHome ecosystem.",
@@ -25,7 +25,8 @@
   "keywords": [
     "homebridge-plugin",
     "gluehome",
-    "iot"
+    "iot",
+    "smartlock"
   ],
   "dependencies": {
     "axios": "^0.21.0"
