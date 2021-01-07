@@ -3,6 +3,9 @@
   "name": "@gluehome/homebridge-gluehome",
   "version": "0.1.2",
   "description": "Homebridge plugin to integrate with GlueHome ecosystem.",
+  "author": {
+    "name": "GlueHome"
+  },
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
