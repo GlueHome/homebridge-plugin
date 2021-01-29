@@ -13,6 +13,7 @@ import { retry } from './utils';
 export class GlueLockAccessory {
   private lockMechanism: Service;
   private batteryService: Service;
+  private isBusy = false;
 
   private lockCurrentState: Record<EventType, number> = {
     'unknown': this.platform.Characteristic.LockCurrentState.UNKNOWN,
@@ -71,7 +72,7 @@ export class GlueLockAccessory {
     this.batteryService.getCharacteristic(this.platform.Characteristic.ChargingState)
       .on('get', this.getBatteryChargingState.bind(this));
 
-    this.refreshLockData();
+    this.scheduleRefreshLockData();
   }
 
   getLockCurrentState(callback: CharacteristicGetCallback) {
@@ -92,40 +93,42 @@ export class GlueLockAccessory {
     this.platform.log.debug(`setLockTargetState setLockTargetState to ${value} for lock ${this.lock.description}`);
     const targetValue = value as number;
     const remoteOperationType = this.lockTargetStateMapper[targetValue];
+    
+    if (this.isBusy) {
+      this.platform.log.info(`Lock ${this.lock.description} is currently busy. Please retry in a few seconds.`);
+      callback(null);
+      return;
+    }
 
     if (this.lock.connectionStatus === LockConnecitionStatus.Connected) {
       this.glueClient
         .createLockOperation(this.lock.id, { type: remoteOperationType })
         .then(createdOperation => {
           this.platform.log.debug(`operation for lock ${this.lock.description}`, createdOperation);
-
-          return createdOperation.isFinished() ?
-            createdOperation :
-            retry<LockOperation>({
-              times: 5,
-              interval: 2000,
+          this.isBusy = true;
+  
+          return (createdOperation.isFinished())
+            ? createdOperation
+            : retry<LockOperation>({
+              times: 20,
+              interval: 1000,
               task: () => this.checkRemoteOperationStatus(createdOperation.id),
             });
         })
         .then(operation => {
           this.platform.log.info('Operation finished', operation);
-
-          if (operation.status === LockOperationStatus.Completed) {
-            this.lock.lastLockEvent = {
-              eventType: this.targetToCurrentStateMapper[targetValue],
-              lastLockEventDate: new Date(),
-            };
-
-            this.lockMechanism.setCharacteristic(this.platform.Characteristic.LockCurrentState, this.computeLockCurrentState());
-
-            callback(null, targetValue);
-          } else {
-            callback(new Error(`Remote operation ${operation.status}.`));
+          if (operation.status !== LockOperationStatus.Completed) {
+            throw new Error(`Remote operation ${operation.status}.`);
           }
+          callback(null);
         })
         .catch(err => {
           this.platform.log.error(err);
           callback(err);
+        })
+        .finally(() => {
+          this.isBusy = false;
+          this.refreshLockData();
         });
     } else {
       callback(new Error(`Lock ${this.lock.description} is not connected.`));
@@ -172,19 +175,26 @@ export class GlueLockAccessory {
       this.platform.Characteristic.LockCurrentState.UNKNOWN;
   }
 
+  private scheduleRefreshLockData() {
+    return setInterval(() => {
+      this.refreshLockData(); 
+    }, 30000);
+  }
+   
   private refreshLockData() {
-    setInterval(() => {
-      this.glueClient
-        .getLock(this.lock.id)
-        .then(updatedLock => {
-          this.platform.log.debug(`Update lock ${updatedLock.description} characteristics.`, updatedLock);
-          this.lock = updatedLock;
+    if (this.isBusy) {
+      return;
+    }
+    this.glueClient
+      .getLock(this.lock.id)
+      .then(updatedLock => {
+        this.platform.log.debug(`Update lock ${updatedLock.description} characteristics.`, updatedLock);
+        this.lock = updatedLock;
 
-          this.lockMechanism.updateCharacteristic(this.platform.Characteristic.Name, this.lock.description);
-          this.batteryService.updateCharacteristic(this.platform.Characteristic.BatteryLevel, this.lock.batteryStatus);
-          this.batteryService.updateCharacteristic(this.platform.Characteristic.StatusLowBattery, this.computeLockBatteryStatus());
-          this.lockMechanism.updateCharacteristic(this.platform.Characteristic.LockCurrentState, this.computeLockCurrentState());
-        });
-    }, 10000);
+        this.lockMechanism.updateCharacteristic(this.platform.Characteristic.Name, this.lock.description);
+        this.batteryService.updateCharacteristic(this.platform.Characteristic.BatteryLevel, this.lock.batteryStatus);
+        this.batteryService.updateCharacteristic(this.platform.Characteristic.StatusLowBattery, this.computeLockBatteryStatus());
+        this.lockMechanism.updateCharacteristic(this.platform.Characteristic.LockCurrentState, this.computeLockCurrentState());
+      });
   }
 }

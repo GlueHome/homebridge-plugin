@@ -1,11 +1,13 @@
 import { API, DynamicPlatformPlugin, Logger, PlatformAccessory, PlatformConfig, Service, Characteristic } from 'homebridge';
-
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings';
 import { GlueLockAccessory } from './lock';
 import { GlueApi } from './api';
+import { issueApiKey } from './api/client';
 
 interface GlueHomePlatformConfig extends PlatformConfig {
   apiKey: string;
+  username: string;
+  password: string;
 }
 
 export class GlueHomePlatformPlugin implements DynamicPlatformPlugin {
@@ -13,21 +15,30 @@ export class GlueHomePlatformPlugin implements DynamicPlatformPlugin {
   public readonly Characteristic: typeof Characteristic = this.api.hap.Characteristic;
 
   public readonly accessories: PlatformAccessory[] = [];
-  private readonly apiClient: GlueApi;
+  private apiClient?: GlueApi;
 
   constructor(
     public readonly log: Logger,
     public readonly config: PlatformConfig,
     public readonly api: API,
   ) {
-    const glueConfig = config as GlueHomePlatformConfig;
-
-    this.apiClient = new GlueApi(glueConfig.apiKey);
-    
     this.api.on('didFinishLaunching', () => {
       log.debug('Executed didFinishLaunching callback');
-      this.discoverDevices();
+
+      this.getApiKey(config as GlueHomePlatformConfig)
+        .then(key => {
+          this.apiClient = new GlueApi(key);
+          this.discoverDevices();
+        }).catch(err => {
+          log.error('Error authenticating:', err);
+        });
     });
+  }
+
+  getApiKey(glueConfig: GlueHomePlatformConfig): Promise<string> {
+    return (glueConfig.apiKey)
+      ? Promise.resolve(glueConfig.apiKey)
+      : issueApiKey(glueConfig.username, glueConfig.password);
   }
 
   configureAccessory(accessory: PlatformAccessory) {
@@ -37,6 +48,9 @@ export class GlueHomePlatformPlugin implements DynamicPlatformPlugin {
   }
 
   discoverDevices() {
+    if (this.apiClient === undefined) {
+      return;
+    }
     this.apiClient.getLocks()
       .then(locks => {
         for (const lock of locks) {
@@ -46,7 +60,7 @@ export class GlueHomePlatformPlugin implements DynamicPlatformPlugin {
             if (lock) {
               this.log.info('Restoring existing accessory from cache:', existingAccessory.displayName);
 
-              new GlueLockAccessory(this, existingAccessory, this.apiClient, lock);
+              new GlueLockAccessory(this, existingAccessory, this.apiClient as GlueApi, lock);
 
               this.api.updatePlatformAccessories([existingAccessory]);
             } else if (!lock) {
@@ -58,7 +72,7 @@ export class GlueHomePlatformPlugin implements DynamicPlatformPlugin {
 
             const accessory = new this.api.platformAccessory(lock.description, lock.id);
 
-            new GlueLockAccessory(this, accessory, this.apiClient, lock);
+            new GlueLockAccessory(this, accessory, this.apiClient as GlueApi, lock);
 
             this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
           }

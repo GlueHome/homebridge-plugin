@@ -5,10 +5,43 @@
   "schema": {
     "type": "object",
     "properties": {
+      "auth": {
+        "title": "Authentication Mode",
+        "type": "string",
+        "default": "api-key",
+        "oneOf": [
+          { "title": "API-Key", "enum": ["api-key"] },
+          { "title": "Basic Auth", "enum": ["basic"] }  
+        ],
+        "description": "The authentication method GlueHome plugin will use to access your Glue profile and Glue devices. API-Key auth is recommended.",
+        "required": true
+      },
       "apiKey": {
         "title": "apiKey",
         "type": "string",
-        "required": true
+        "required": false,
+        "description": "The API-KEY issued using your Glue account.",
+        "condition": {
+          "functionBody": "return model.auth === 'api-key';"
+        }
+      },
+      "username": {
+        "title": "username",
+        "type": "string",
+        "required": false,
+        "description": "You Glue account phone number in international format (e.g. +46734567890)",
+        "condition": {
+          "functionBody": "return model.auth === 'basic';"
+        }
+      },
+      "password": {
+        "title": "password",
+        "type": "string",
+        "required": false,
+        "description": "Your Glue account password",
+        "condition": {
+          "functionBody": "return model.auth === 'basic';"
+        }
       }
     }
   }
