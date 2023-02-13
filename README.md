@@ -24,7 +24,7 @@ In order to use `@gluehome/homebridge-gluehome`, it is required to create an api
 ```
 curl --location --request POST 'https://user-api.gluehome.com/v1/api-keys' \
 --header 'Content-Type: application/json' \
--u username:password \
+-u "username":"password" \
 --data-raw '{
     "name": "My Test Key",
     "scopes": ["events.read", "locks.read", "locks.write"]
