@@ -22,7 +22,7 @@ npm i -g @gluehome/homebridge-gluehome
 In order to use `@gluehome/homebridge-gluehome`, it is required to create an api key.
 
 ```
-curl --location --request POST 'https://user-api.gluehome.com/v1/api-keys' \
+curl -i --location --request POST 'https://user-api.gluehome.com/v1/api-keys' \
 --header 'Content-Type: application/json' \
 -u "username":"password" \
 --data-raw '{
